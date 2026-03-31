@@ -5,7 +5,7 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -78,25 +78,34 @@ activities = {
 }
 
 
+def get_activities_store():
+    """Return the activity store dependency for route handlers."""
+    return activities
+
+
 @app.get("/")
 def root():
     return RedirectResponse(url="/static/index.html")
 
 
 @app.get("/activities")
-def get_activities():
-    return activities
+def get_activities(activity_store=Depends(get_activities_store)):
+    return activity_store
 
 
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
+def signup_for_activity(
+    activity_name: str,
+    email: str,
+    activity_store=Depends(get_activities_store),
+):
     """Sign up a student for an activity"""
     # Validate activity exists
-    if activity_name not in activities:
+    if activity_name not in activity_store:
         raise HTTPException(status_code=404, detail="Activity not found")
 
     # Get the specific activity
-    activity = activities[activity_name]
+    activity = activity_store[activity_name]
 
     # Validate student is not already signed up
     if email in activity["participants"]:
@@ -108,13 +117,17 @@ def signup_for_activity(activity_name: str, email: str):
 
 
 @app.delete("/activities/{activity_name}/participants")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(
+    activity_name: str,
+    email: str,
+    activity_store=Depends(get_activities_store),
+):
     """Unregister a student from an activity"""
     # Validate activity exists
-    if activity_name not in activities:
+    if activity_name not in activity_store:
         raise HTTPException(status_code=404, detail="Activity not found")
 
-    activity = activities[activity_name]
+    activity = activity_store[activity_name]
 
     # Validate student is currently signed up
     if email not in activity["participants"]:
